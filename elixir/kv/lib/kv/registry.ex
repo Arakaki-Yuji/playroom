@@ -5,16 +5,23 @@ defmodule KV.Registry do
   @doc """
   Starts the registry.
   """
-  def start_link(event_manager, buckets, opts \\ []) do
-    GenServer.start_link(__MODULE__, {event_manager, buckets}, opts)
+  def start_link(table, event_manager, buckets, opts \\ []) do
+    # 1. Wenow expect the table as argument and pass it to the server
+    GenServer.start_link(__MODULE__, {table, event_manager, buckets}, opts)
   end
 
   @doc """
-  Looks up the bucket pid for `name` stared in `server`.
+  Looks up the bucket pid for `name` stared in `table`.
+
   Returns `{:ok, pid}` if the bucket exists, `:error` otherwise.
   """
-  def lookup(server, name) do
-    GenServer.call(server, {:lookup, name})
+  def lookup(table, name) do
+    # 3. lookup now expects table and looks directly into ETS.
+    #    No request is sent to the server.
+    case :ets.lookup(table, name) do
+      [{^name, bucket}] -> {:ok, bucket}
+      [] -> :error
+    end
   end
 
   @doc """
@@ -33,39 +40,31 @@ defmodule KV.Registry do
 
   ### Server Callbacks
 
-  def init({events, buckets}) do
-    names = HashDict.new
-    refs  = HashDict.new
-    {:ok, %{names: names, refs: refs, events: events, buckets: buckets}}
-  end
-
-  def handle_call({:lookup, name}, _from, state) do
-    {:reply, HashDict.fetch(state.names, name), state}
-  end
-
-  def handle_call({:stop, _from, state}) do
-    {:stop, :normal, :ok, state}
+  def init({table, events, buckets}) do
+    ets = :ets.new(table, [:named_table, read_concurrency: true])
+    refs = HashDict.new
+    {:ok, %{names: ets, refs: refs, events: events, buckets: buckets}}
   end
 
   def handle_cast({:create, name}, state) do
-    if HashDict.get(state.names, name) do
-      {:noreply, state}
-    else
-      # Use the buckets supervisor instead of starting buckets directly
-      {:ok, pid} = KV.Bucket.Supervisor.start_bucket(state.buckets)
-      ref = Process.monitor(pid)
-      refs = HashDict.put(state.refs, ref, name)
-      names = HashDict.put(state.names, name, pid)
-      GenEvent.sync_notify(state.events, {:create, name, pid})
-      {:noreply, %{state | names: names, refs: refs}}
+    case lookup(state.naems, name) do
+      {:ok, _pid} ->
+        {:noreply, state}
+      :error ->
+        {:ok, pid} = KV.Bucket.Supervisor.start_bucket(state.buckets)
+        ref = Process.monitor(pid)
+        refs  = HashDict.put(state.refs, ref, name)
+        :ets.insert(state.names, {name, pid})
+        GenEvent.sync_notify(state.events, {:create, name, pid})
+        {:noreply, %{state | refs: refs}}
     end
   end
 
   def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
     {name, refs} = HashDict.pop(state.refs, ref)
-    names = HashDict.delete(state.names, name)
+    :ets.delete(state.names, name)
     GenEvent.sync_notify(state.events, {:exit, name, pid})
-    {:noreply, %{state | names: names, refs: refs}}
+    {:noreply, %{state | refs: refs}}
   end
 
   def handle_info(_msg, state) do
