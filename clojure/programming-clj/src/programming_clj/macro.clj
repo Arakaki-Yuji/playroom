@@ -5,3 +5,7 @@
   [condition & forms]
   `(if (not ~condition)
      ~@forms))
+
+(defmacro unsplice
+  [& coll]
+  `(do ~@coll))
