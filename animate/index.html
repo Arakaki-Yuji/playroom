@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>テスト</title>
+    </head>
+    <style type="text/css">
+     #space {
+         background-color: #000;
+         overflow: hidden;
+         width: 1500px;
+         height: 900px;
+     }
+     #sun {
+         position: absolute;
+         left: 800px;
+         top: 300px;
+         width: 0px;
+     }
+     #sun.animate {
+         width: 400px;
+         left: 600px;
+         top: 100px;
+         -webkit-transition: top 1s linear, left 1s linear, width 1s linear;
+     }
+     #stars {
+         position: absolute;
+         top: 0px;
+         left: 20px;
+     }
+     #stars.animate{
+         top: 100px;
+         left: 120px;
+         -webkit-transition: top 1s linear, left 1s linear;
+     }
+     #stars_2 {
+         position: absolute;
+         top: 100px;
+         left: 200px;
+     }
+     #stars_2.animate{
+         top: 300px;
+         left: 600px;
+         -webkit-transition: top 1s linear, left 1s linear;
+     }
+
+    </style>
+    <body>
+        <div class="wrapper">
+            <div id="btn-1">
+                <p>ボタン</p>
+            </div>
+            <div id="btn-2">
+                <p>ボタン2</p>
+            </div>
+        </div>
+        <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+        <script>
+         var $sun = $('#sun');
+         var $stars = $('#stars');
+         var $stars2 = $('#stars_2');
+         var $space = $('#space');
+         $sun.addClass('animate');
+         $stars.addClass('animate');
+         $stars2.addClass('animate');
+         setTimeout(function(){
+             //$space.fadeOut();
+         }, 1000);
+         //var timer = setInterval(function(){
+         //    sunBiggerAnimate($sun);
+         //    stopTimer()
+         //},100);
+
+         function stopTimer(){
+             if($sun.width() > 400){
+                 clearTimeout(timer);
+                 $space.fadeOut();
+             }
+         }
+
+         function sunBiggerAnimate(sun){
+             var next_width = sun.width() + 50;
+             var next_top = sun.position().top - 25;
+             var next_left = sun.position().left - 25;
+             sun.css({
+                 width: next_width,
+                 top: next_top,
+                 left: next_left
+             });
+         }
+        </script>
+    </body>
+</html>
